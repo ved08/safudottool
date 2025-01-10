@@ -10,7 +10,7 @@ import { useToast } from "@/components/use-toast"
 import { Loader2, Check } from 'lucide-react'
 import Image from 'next/image'
 import { Checkbox } from "@/components/ui/checkbox"
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createTransferCheckedInstruction, getAssociatedTokenAddress, getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   Connection,
   Keypair,
@@ -38,6 +38,7 @@ import {
 } from "@metaplex-foundation/umi";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { fetchAllTokenRecord } from "@metaplex-foundation/mpl-token-metadata";
+import { createAssociatedTokenAccount, createTransferInstruction } from "@solana/spl-token";
 import axios from "axios"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 interface Asset {
@@ -128,6 +129,8 @@ export default function SafuRecoveryTool() {
   }
 
   const handleSubmit = async () => {
+    const umi = createUmi(clusterApiUrl("devnet"))
+
     if (!publicKey) return;
     setIsLoading(true)
     try {
@@ -146,13 +149,29 @@ export default function SafuRecoveryTool() {
         totalRentFee += rent
       }
       totalRentFee += 10000
+
+      const instructions = []
       const keypair = Keypair.fromSecretKey(base58.decode(secretKey))
-      const blockhash = (await connection.getLatestBlockhash()).blockhash
       const transferIx = SystemProgram.transfer({
         fromPubkey: publicKey,
         toPubkey: keypair.publicKey,
         lamports: totalRentFee
       })
+      instructions.push(transferIx)
+      for (let i = 0; i < selectedToken.length; i++) {
+        const mint = new PublicKey(selectedToken[i].mint)
+        const programId = selectedToken[i].tokenEdition === 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID
+        // TODO HERE
+        const ix = createTransferCheckedInstruction(keypair.publicKey, mint, publicKey, publicKey, 100, 6)
+        instructions.push(ix)
+      }
+      for (let i = 0; i < selectedNFT.length; i++) {
+        // TODO HERE
+        const mint = selectedNFT[i].mint
+
+      }
+
+      const blockhash = (await connection.getLatestBlockhash()).blockhash
       const messagev0 = new TransactionMessage({
         payerKey: publicKey,
         recentBlockhash: blockhash,
