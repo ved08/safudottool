@@ -30,7 +30,6 @@ import { fetchAllDigitalAssetByOwner, fetchAllEdition, fetchAllMetadataByOwner }
 export const POST = async (req: Request) => {
     try {
         // Simulate API call to fetch assets
-        // Sample secret key 4GtZQJJcZRfAGSV6K9shTsjv2qUWBtsvyNpdxh9uyo7Pyz9s8Qfghesi8WbrcEEdLEFbhExQ82dJ7gXHfaEpzbtZ
         const { secretKey } = await req.json()
         const keypair = Keypair.fromSecretKey(base58.decode(secretKey))
         const umi = createUmi("https://api.devnet.solana.com").use(dasApi())
@@ -53,7 +52,7 @@ export const POST = async (req: Request) => {
 
         // Extract and return the mint addresses of the fungible tokens
         const tokenMints = fungibleTokens.map(
-            (accountInfo) => ({ info: accountInfo.account.data.parsed.info })
+            (accountInfo) => ({ info: { ...accountInfo.account.data.parsed.info, tokenEdition: 0 } })
         );
         const fungibleTokens2022 = tokens2022.value.filter(
             (accountInfo) => {
@@ -63,7 +62,7 @@ export const POST = async (req: Request) => {
         );
         // Extract and return the mint addresses of the fungible tokens
         const tokenMints2022 = fungibleTokens2022.map(
-            (accountInfo) => ({ info: accountInfo.account.data.parsed.info, type: "Token" })
+            (accountInfo) => ({ info: { ...accountInfo.account.data.parsed.info, tokenEdition: 1 } })
         );
 
         const allTokens = []

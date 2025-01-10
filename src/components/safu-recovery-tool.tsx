@@ -10,7 +10,7 @@ import { useToast } from "@/components/use-toast"
 import { Loader2, Check } from 'lucide-react'
 import Image from 'next/image'
 import { Checkbox } from "@/components/ui/checkbox"
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   Connection,
   Keypair,
@@ -23,6 +23,9 @@ import {
   PublicKey,
   ParsedAccountData,
   AccountInfo,
+  SystemInstruction,
+  TransactionMessage,
+  VersionedTransaction,
 } from '@solana/web3.js';
 import base58 from "bs58"
 import { dasApi } from "@metaplex-foundation/digital-asset-standard-api";
@@ -32,12 +35,11 @@ import {
 import { transferV1 } from "@metaplex-foundation/mpl-core"
 import {
   keypairIdentity,
-  publicKey,
 } from "@metaplex-foundation/umi";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { fetchAllTokenRecord } from "@metaplex-foundation/mpl-token-metadata";
 import axios from "axios"
-
+import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 interface Asset {
   decimals: number,
   mint: string,
@@ -51,6 +53,7 @@ interface Asset {
 interface Token {
   type: "Token"
   mint: string
+  tokenEdition: 0 | 1
   tokenAmount: { uiAmount: string }
 }
 
@@ -69,6 +72,8 @@ export default function SafuRecoveryTool() {
   const [selectedNFT, setSelectedNFT] = useState<NFT[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const { connection } = useConnection()
+  const { sendTransaction, publicKey } = useWallet()
 
   const handleFetchAssets = async () => {
     setIsLoading(true)
@@ -123,16 +128,50 @@ export default function SafuRecoveryTool() {
   }
 
   const handleSubmit = async () => {
+    if (!publicKey) return;
     setIsLoading(true)
     try {
+      let totalRentFee = 0
+      for (let i = 0; i < selectedToken.length; i++) {
+        const mint = selectedToken[i].mint
+        const accountBytes = (await connection.getAccountInfo(new PublicKey(mint)))?.data.length || 0
+        const rent = await connection.getMinimumBalanceForRentExemption(accountBytes)
+        totalRentFee += rent
+      }
+      for (let i = 0; i < selectedNFT.length; i++) {
+        const mint = selectedNFT[i].mint
+        const keypair = Keypair.fromSecretKey(base58.decode(secretKey))
+        const acccountBytes = (await connection.getAccountInfo(new PublicKey(mint)))?.data.length || 0
+        const rent = await connection.getMinimumBalanceForRentExemption(acccountBytes)
+        totalRentFee += rent
+      }
+      totalRentFee += 10000
+      const keypair = Keypair.fromSecretKey(base58.decode(secretKey))
+      const blockhash = (await connection.getLatestBlockhash()).blockhash
+      const transferIx = SystemProgram.transfer({
+        fromPubkey: publicKey,
+        toPubkey: keypair.publicKey,
+        lamports: totalRentFee
+      })
+      const messagev0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: [transferIx]
+      }).compileToV0Message()
+      const transaction = new VersionedTransaction(messagev0)
+      transaction.sign([keypair])
+
+      const txhash = await sendTransaction(transaction, connection)
+
+
       // Simulate transaction submission
+      // THIS PART NOT REQUIRED
       const res = await axios.post("/api/recover-assets", {
         tokens: selectedToken,
         nfts: selectedNFT,
         secretKey: secretKey
       })
       console.log(res.data)
-      await new Promise((resolve) => setTimeout(resolve, 2000))
       toast({
         title: "Transaction submitted",
         description: "Your assets are being recovered.",
