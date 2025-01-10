@@ -49,6 +49,7 @@ interface Asset {
 }
 
 interface Token {
+  type: "Token"
   mint: string
   tokenAmount: { uiAmount: string }
 }
@@ -59,23 +60,13 @@ interface NFT extends Asset {
   description: string
 }
 
-// const mockTokens: Token[] = [
-//   { id: "1", name: "Solana", mint: "So11111111111111111111111111111111111111112", amount: 1.5 },
-//   { id: "2", name: "USDC", mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", amount: 100 },
-//   { id: "3", name: "Raydium", mint: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", amount: 50 },
-// ]
-
-// const mockNFTs: NFT[] = [
-//   { id: "4", name: "Cool NFT #1234", type: "NFT", image: "/placeholder.svg?height=200&width=200" },
-//   { id: "5", name: "Compressed NFT #5678", type: "cNFT", image: "/placeholder.svg?height=200&width=200" },
-//   { id: "6", name: "Awesome NFT #9876", type: "NFT", image: "/placeholder.svg?height=200&width=200" },
-// ]
-
 export default function SafuRecoveryTool() {
   const [secretKey, setSecretKey] = useState("")
   const [tokens, setTokens] = useState<Token[]>([])
   const [nfts, setNFTs] = useState<NFT[]>([])
   const [selectedAssets, setSelectedAssets] = useState<string[]>([])
+  const [selectedToken, setSelectedToken] = useState<Token[]>([])
+  const [selectedNFT, setSelectedNFT] = useState<NFT[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
@@ -87,7 +78,6 @@ export default function SafuRecoveryTool() {
         secretKey: secretKey
       })
       if (!data.error) {
-        console.log(data)
         const nftDataPromie: NFT[] = data.assets.map(async (asset: Asset) => {
           if (asset.decimals == 0) {
             // image and type
@@ -106,9 +96,10 @@ export default function SafuRecoveryTool() {
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tokenDataPromise = res.data.assets.map(async (token: { info: any }) => {
-        return token.info
+        return { ...token.info, type: "Token" }
       })
       const tokensData = await Promise.all(tokenDataPromise)
+      console.log(tokensData)
       setTokens(tokensData)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
@@ -123,16 +114,24 @@ export default function SafuRecoveryTool() {
     }
   }
 
-  const handleAssetToggle = (assetId: string) => {
-    setSelectedAssets((prev) =>
-      prev.includes(assetId) ? prev.filter((id) => id !== assetId) : [...prev, assetId]
-    )
+  const handleAssetToggle = (assetId: string, asset: NFT | Token) => {
+    if (asset.type == "Token") {
+      setSelectedToken(prev => prev.filter(a => a.mint == asset.mint).length > 0 ? prev.filter(a => a.mint !== asset.mint) : [...prev, asset])
+    } else {
+      setSelectedNFT(prev => prev.filter(a => a.mint == asset.mint).length > 0 ? prev.filter(a => a.mint !== asset.mint) : [...prev, asset])
+    }
   }
 
   const handleSubmit = async () => {
     setIsLoading(true)
     try {
       // Simulate transaction submission
+      const res = await axios.post("/api/recover-assets", {
+        tokens: selectedToken,
+        nfts: selectedNFT,
+        secretKey: secretKey
+      })
+      console.log(res.data)
       await new Promise((resolve) => setTimeout(resolve, 2000))
       toast({
         title: "Transaction submitted",
@@ -190,12 +189,12 @@ export default function SafuRecoveryTool() {
                   </thead>
                   <tbody>
                     {tokens.map((token) => {
-                      const isSelected = selectedAssets.includes(token.mint);
+                      const isSelected = selectedToken.filter(a => a.mint == token.mint).length > 0;
                       return (
                         <tr
                           key={token.mint}
                           className={`border-t border-gray-600 cursor-pointer hover:bg-gray-600 transition-colors ${isSelected ? 'bg-gray-600' : ''}`}
-                          onClick={() => handleAssetToggle(token.mint)}
+                          onClick={() => handleAssetToggle(token.mint, token)}
                         >
                           <td className="p-2">
                             <Checkbox
@@ -217,12 +216,12 @@ export default function SafuRecoveryTool() {
               <h3 className="text-xl font-semibold mb-4">NFTs</h3>
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {nfts.map((nft) => {
-                  const isSelected = selectedAssets.includes(nft.mint)
+                  const isSelected = selectedNFT.filter(a => a.mint == nft.mint).length > 0
                   return (
                     <div
                       key={nft.mint}
                       className={`relative cursor-pointer transition-all duration-200 ease-in-out ${isSelected ? 'ring-2 ring-purple-500' : 'hover:ring-2 hover:ring-purple-400'}`}
-                      onClick={() => handleAssetToggle(nft.mint)}
+                      onClick={() => handleAssetToggle(nft.mint, nft)}
                     >
                       <Card className="bg-gray-700 border-gray-600 overflow-hidden">
                         <CardContent className="p-0">
@@ -264,7 +263,7 @@ export default function SafuRecoveryTool() {
       <CardFooter>
         <Button
           onClick={handleSubmit}
-          disabled={isLoading || selectedAssets.length === 0}
+          disabled={isLoading || (selectedNFT.length === 0 && selectedToken.length === 0)}
           className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
         >
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Recover Selected Assets"}

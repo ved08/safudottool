@@ -63,7 +63,7 @@ export const POST = async (req: Request) => {
         );
         // Extract and return the mint addresses of the fungible tokens
         const tokenMints2022 = fungibleTokens2022.map(
-            (accountInfo) => ({ info: accountInfo.account.data.parsed.info })
+            (accountInfo) => ({ info: accountInfo.account.data.parsed.info, type: "Token" })
         );
 
         const allTokens = []
