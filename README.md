@@ -1,36 +1,15 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# **S.A.F.U.** – **S**olana **A**ssets & **F**unds **U**nlocker
 
-## Getting Started
+*a tool which helps users recover assets from their bricked wallets*
 
-First, run the development server:
+## What is SAFU?
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+As the crypto industry is evolving rapidly, the number of wallets getting compromised or bricked is also increasing due to scammers. Although users lose all their funds, they can still recover some of it by recovering tokens, stake, NFT’s, or by even closing the active token accounts.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+SAFU(acronym for **S**olana **A**ssets & **F**unds **U**nlocker) is a platform which will help users recover their assets from a bricked wallet and transfer it to a safe wallet.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## **How it Works?**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Usually, in bricked wallets, the hacker has access to the private key and runs an automated script that monitors the wallet. Whenever the user tries to transfer funds or assets to the compromised wallet, the script immediately **triggers a transaction**, redirecting the funds to the hacker’s wallet. This makes it impossible for the user to retain control over their assets, as any attempt to use the wallet results in an instant theft, leaving the user powerless despite owning the private key.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+SAFU solves the issue of bricked wallets by sending a small amount of SOL to cover transaction fees and executing a single atomic transaction. This transaction swiftly transfers the user’s assets from the compromised wallet to a secure wallet before the hacker’s bot can detect and intercept it.
