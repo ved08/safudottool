@@ -63,8 +63,9 @@ export default function SafuRecoveryTool() {
 
   const handleFetchAssets = async () => {
     setIsLoading(true)
+    console.log(connection.rpcEndpoint)
     try {
-      const { data } = await axios.post("/api/fetch-nfts", {
+      const { data } = await axios.post(`/api/fetch-nfts?cluster=${connection.rpcEndpoint}`, {
         secretKey: secretKey
       })
       if (!data.error) {

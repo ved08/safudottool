@@ -1,5 +1,4 @@
 import { Metadata } from "next"
-import { Navbar } from "@/components/navbar"
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +12,6 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
-      <Navbar />
       <main className="flex-grow container mx-auto px-4 py-12 space-y-16">
         <section className="text-center">
           <h1 className="mb-4 text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
