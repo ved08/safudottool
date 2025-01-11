@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,19 +9,16 @@ import { useToast } from "@/components/use-toast"
 import { Loader2, Check } from 'lucide-react'
 import Image from 'next/image'
 import { Checkbox } from "@/components/ui/checkbox"
-import { createTransferCheckedInstruction, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createAssociatedTokenAccountInstruction, createTransferCheckedInstruction, getAssociatedTokenAddressSync, getMint, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   Keypair,
-  SystemProgram,
   PublicKey,
   TransactionMessage,
   VersionedTransaction,
+  TransactionInstruction,
+  LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
 import base58 from "bs58"
-import {
-  mplBubblegum,
-} from "@metaplex-foundation/mpl-bubblegum";
-import { transferV1 } from "@metaplex-foundation/mpl-core"
 import axios from "axios"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 interface Asset {
@@ -52,7 +48,7 @@ export default function SafuRecoveryTool() {
   const [secretKey, setSecretKey] = useState("")
   const [tokens, setTokens] = useState<Token[]>([])
   const [nfts, setNFTs] = useState<NFT[]>([])
-  const [selectedAssets, setSelectedAssets] = useState<string[]>([])
+  const [txfee, setTxfee] = useState(0)
   const [selectedToken, setSelectedToken] = useState<Token[]>([])
   const [selectedNFT, setSelectedNFT] = useState<NFT[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -60,26 +56,27 @@ export default function SafuRecoveryTool() {
   const { connection } = useConnection()
   const { sendTransaction, publicKey } = useWallet()
 
+  useEffect(() => {
+    const len = selectedToken.length + selectedNFT.length
+    setTxfee(2_040_000 * len)
+  }, [selectedToken, selectedNFT])
+
   const handleFetchAssets = async () => {
     setIsLoading(true)
     try {
-      // Simulate API call to fetch assets
       const { data } = await axios.post("/api/fetch-nfts", {
         secretKey: secretKey
       })
       if (!data.error) {
         const nftDataPromie: NFT[] = data.assets.map(async (asset: Asset) => {
           if (asset.decimals == 0) {
-            // image and type
             const { data } = await axios.get(asset.uri)
-
             const nft = { ...asset, image: data.image, type: "NFT", description: data.description }
             return nft
           }
         })
         const nftDataResolved = (await Promise.all(nftDataPromie)).filter(nft => nft)
         setNFTs(nftDataResolved)
-        console.log(nftDataResolved)
       } else { throw Error(data.message) }
       const res = await axios.post("/api/fetch-tokens", {
         secretKey: secretKey
@@ -89,7 +86,6 @@ export default function SafuRecoveryTool() {
         return { ...token.info, type: "Token" }
       })
       const tokensData = await Promise.all(tokenDataPromise)
-      console.log(tokensData)
       setTokens(tokensData)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
@@ -104,53 +100,52 @@ export default function SafuRecoveryTool() {
     }
   }
 
-  const handleAssetToggle = (assetId: string, asset: NFT | Token) => {
+  const handleAssetToggle = async (assetId: string, asset: NFT | Token) => {
     if (asset.type == "Token") {
       setSelectedToken(prev => prev.filter(a => a.mint == asset.mint).length > 0 ? prev.filter(a => a.mint !== asset.mint) : [...prev, asset])
+
     } else {
       setSelectedNFT(prev => prev.filter(a => a.mint == asset.mint).length > 0 ? prev.filter(a => a.mint !== asset.mint) : [...prev, asset])
+
     }
   }
 
   const handleSubmit = async () => {
 
-    if (!publicKey) return;
+    if (!publicKey) { console.log("Not connected"); return; };
     setIsLoading(true)
     try {
-      let totalRentFee = 0
-      for (let i = 0; i < selectedToken.length; i++) {
-        const mint = selectedToken[i].mint
-        const accountBytes = (await connection.getAccountInfo(new PublicKey(mint)))?.data.length || 0
-        const rent = await connection.getMinimumBalanceForRentExemption(accountBytes)
-        totalRentFee += rent
-      }
-      for (let i = 0; i < selectedNFT.length; i++) {
-        const mint = selectedNFT[i].mint
-        const keypair = Keypair.fromSecretKey(base58.decode(secretKey))
-        const acccountBytes = (await connection.getAccountInfo(new PublicKey(mint)))?.data.length || 0
-        const rent = await connection.getMinimumBalanceForRentExemption(acccountBytes)
-        totalRentFee += rent
-      }
-      totalRentFee += 10000
 
-      const instructions = []
+      const instructions: TransactionInstruction[] = []
       const keypair = Keypair.fromSecretKey(base58.decode(secretKey))
-      const transferIx = SystemProgram.transfer({
-        fromPubkey: publicKey,
-        toPubkey: keypair.publicKey,
-        lamports: totalRentFee
-      })
-      instructions.push(transferIx)
+
       for (let i = 0; i < selectedToken.length; i++) {
         const mint = new PublicKey(selectedToken[i].mint)
         const programId = selectedToken[i].tokenEdition === 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID
-        // TODO HERE
-        const ix = createTransferCheckedInstruction(keypair.publicKey, mint, publicKey, publicKey, 100, 6)
+        const mintDetails = await getMint(connection, mint)
+        const ata = getAssociatedTokenAddressSync(mint, keypair.publicKey, false, programId)
+        const senderAtaBalance = (await connection.getTokenAccountBalance(ata)).value.amount
+        const recieverAta = getAssociatedTokenAddressSync(mint, publicKey, false, programId)
+        const recieverAtaExists = await connection.getAccountInfo(recieverAta)
+        if (!recieverAtaExists) {
+          const createAtaIx = createAssociatedTokenAccountInstruction(publicKey, recieverAta, publicKey, mint, programId)
+          instructions.push(createAtaIx)
+        }
+        const ix = createTransferCheckedInstruction(ata, mint, recieverAta, keypair.publicKey, BigInt(senderAtaBalance), mintDetails.decimals)
         instructions.push(ix)
       }
       for (let i = 0; i < selectedNFT.length; i++) {
-        // TODO HERE
-        const mint = selectedNFT[i].mint
+        const mint = new PublicKey(selectedNFT[i].mint)
+        const ata = getAssociatedTokenAddressSync(mint, keypair.publicKey, false)
+        const recieverAta = getAssociatedTokenAddressSync(mint, publicKey, false)
+        const recieverAtaExists = await connection.getAccountInfo(recieverAta)
+        if (!recieverAtaExists) {
+          const createAtaIx = createAssociatedTokenAccountInstruction(publicKey, recieverAta, publicKey, mint)
+          instructions.push(createAtaIx)
+        }
+        const ix = createTransferCheckedInstruction(ata, mint, recieverAta, keypair.publicKey, 1, 0)
+        instructions.push(ix)
+
 
       }
 
@@ -158,26 +153,31 @@ export default function SafuRecoveryTool() {
       const messagev0 = new TransactionMessage({
         payerKey: publicKey,
         recentBlockhash: blockhash,
-        instructions: [transferIx]
+        instructions: instructions
       }).compileToV0Message()
       const transaction = new VersionedTransaction(messagev0)
       transaction.sign([keypair])
-
-      const txhash = await sendTransaction(transaction, connection)
-
-
-      // Simulate transaction submission
-      // THIS PART NOT REQUIRED
-      const res = await axios.post("/api/recover-assets", {
-        tokens: selectedToken,
-        nfts: selectedNFT,
-        secretKey: secretKey
-      })
-      console.log(res.data)
       toast({
-        title: "Transaction submitted",
-        description: "Your assets are being recovered.",
+        title: "Transaction Executing",
+        description: "Please sign the transaction",
       })
+
+      try {
+        const txhash = await sendTransaction(transaction, connection)
+        console.log(txhash)
+        toast({
+          title: "Transaction Executed",
+          description: "Tx hash: " + txhash,
+        })
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        toast({
+          title: "Error",
+          description: "User rejected the request",
+          variant: "destructive"
+        })
+      }
+
     } catch (error) {
       console.log(error)
       toast({
@@ -301,6 +301,9 @@ export default function SafuRecoveryTool() {
           </div>
         )}
       </CardContent>
+      <div className="mb-2">
+        <p className="text-center">Minimum required SOL: {(txfee / LAMPORTS_PER_SOL).toFixed(6)}</p>
+      </div>
       <CardFooter>
         <Button
           onClick={handleSubmit}

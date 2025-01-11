@@ -1,17 +1,22 @@
 "use client"
 
 import Link from 'next/link'
-// import { Button } from "@/components/ui/button"
-// import { useState } from 'react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { useEffect, useState } from 'react';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 export function Navbar() {
-  // const [isConnected, setIsConnected] = useState(false)
-
-  // const handleConnect = () => {
-  //   // Implement wallet connection logic here
-  //   setIsConnected(true)
-  // }
+  const { connection } = useConnection()
+  const { publicKey, connected } = useWallet()
+  const [balance, setBalance] = useState(0)
+  useEffect(() => {
+    if (publicKey) {
+      connection.getBalance(publicKey).then(val => {
+        setBalance(val)
+      })
+    }
+  }, [connected, publicKey, connection])
 
   return (
     <nav className="bg-gray-800 p-4">
@@ -20,17 +25,14 @@ export function Navbar() {
           <Link href="/" className="text-white hover:text-purple-400 transition-colors">
             Home
           </Link>
-          <Link href="/asset-recovery" className="text-white hover:text-purple-400 transition-colors">
-            Asset Recovery
+          <Link href="/recover" className="text-white hover:text-purple-400 transition-colors">
+            Recover Now
           </Link>
         </div>
-        {/* <Button
-          onClick={handleConnect}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-        >
-          {isConnected ? 'Connected' : 'Connect Wallet'}
-        </Button> */}
-        <WalletMultiButton />
+        <div className='flex justify-between items-center'>
+          {connected && <p className='text-white h-fit mr-2'>{(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>}
+          <WalletMultiButton />
+        </div>
       </div>
     </nav>
   )
