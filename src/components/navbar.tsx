@@ -5,7 +5,6 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useEffect, useState } from 'react';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { ToggleSwitch } from './ui/toggle-switch';
 
 export function Navbar() {
   const { connection } = useConnection()
@@ -34,7 +33,6 @@ export function Navbar() {
         <div className='flex items-center space-x-4'>
           {connected && <p className='text-white h-fit mr-2'>{(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>}
           <WalletMultiButton />
-          <ToggleSwitch />
         </div>
       </div>
     </nav>

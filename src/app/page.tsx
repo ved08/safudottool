@@ -69,21 +69,6 @@ export default function HomePage() {
           </Card>
         </section>
       </main>
-      <footer className="bg-gray-800 py-6 mt-auto">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-400">
-            Created by{" "}
-            <a
-              href="https://twitter.com/ved0811"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-purple-400 hover:text-purple-300 transition-colors"
-            >
-              @ved0811
-            </a>
-          </p>
-        </div>
-      </footer>
     </div>
   )
 }

@@ -13,8 +13,7 @@ interface AppWalletProviderProps {
     children: ReactNode;
 }
 const AppWalletProvider: React.FC<AppWalletProviderProps> = ({ children }) => {
-    const cluster = localStorage.getItem("cluster") as WalletAdapterNetwork
-    const network = cluster || WalletAdapterNetwork.Mainnet;
+    const network = WalletAdapterNetwork.Mainnet;
     const endpoint = useMemo(() => clusterApiUrl(network), [network]);
     const wallets = useMemo(() => [new PhantomWalletAdapter()], [network]);
 
